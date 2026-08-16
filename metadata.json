@@ -1,0 +1,7 @@
+{
+  "name": "Terminal",
+  "description": "Powerful Android terminal emulator and Linux shell environment with custom packages, text editor, multi-session tabs, and extra keys toolbar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
