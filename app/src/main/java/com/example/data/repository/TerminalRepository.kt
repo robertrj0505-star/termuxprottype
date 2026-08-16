@@ -6,7 +6,7 @@ import com.example.data.local.SavedScriptEntity
 import com.example.data.local.TerminalDao
 import com.example.data.model.PackageItem
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 
 class TerminalRepository(private val dao: TerminalDao) {
 
@@ -54,6 +54,56 @@ class TerminalRepository(private val dao: TerminalDao) {
             installed = true,
             size = "850 KB",
             command = "matrix"
+        ),
+        PackageItem(
+            id = "htop",
+            name = "htop Process Viewer",
+            version = "3.2.2",
+            description = "Interactive process monitor with CPU/RAM usage meters",
+            category = "System",
+            installed = false,
+            size = "1.6 MB",
+            command = "htop"
+        ),
+        PackageItem(
+            id = "jq",
+            name = "jq JSON Processor",
+            version = "1.6",
+            description = "Command-line JSON parser, slicer, filter and pretty printer",
+            category = "Utilities",
+            installed = false,
+            size = "1.1 MB",
+            command = "jq"
+        ),
+        PackageItem(
+            id = "speedtest",
+            name = "Speedtest CLI",
+            version = "2.1.3",
+            description = "Simulated internet bandwidth and latency benchmarking tool",
+            category = "Networking",
+            installed = false,
+            size = "2.3 MB",
+            command = "speedtest"
+        ),
+        PackageItem(
+            id = "nmap",
+            name = "nmap Network Scanner",
+            version = "7.94",
+            description = "Network exploration tool and security / port scanner simulation",
+            category = "Networking",
+            installed = false,
+            size = "5.8 MB",
+            command = "nmap"
+        ),
+        PackageItem(
+            id = "todo",
+            name = "Todo CLI Manager",
+            version = "1.4.0",
+            description = "Command-line productivity task manager with tags and status",
+            category = "Utilities",
+            installed = false,
+            size = "480 KB",
+            command = "todo"
         ),
         PackageItem(
             id = "snake",
@@ -126,16 +176,64 @@ class TerminalRepository(private val dao: TerminalDao) {
             command = "cowsay"
         ),
         PackageItem(
+            id = "fortune",
+            name = "Fortune Cookie",
+            version = "1.9.1",
+            description = "Displays inspirational, humorous quotes and Unix epigrams",
+            category = "Fun",
+            installed = true,
+            size = "350 KB",
+            command = "fortune"
+        ),
+        PackageItem(
             id = "calc",
-            name = "Scientific Math Calc",
+            name = "Scientific Math Calc (bc)",
             version = "2.15",
             description = "Arbitrary precision arithmetic expression calculator",
             category = "Math",
             installed = true,
             size = "1.2 MB",
             command = "calc"
+        ),
+        PackageItem(
+            id = "whois",
+            name = "whois Domain Lookup",
+            version = "5.5.17",
+            description = "Simulated internet domain name and IP address directory lookup",
+            category = "Networking",
+            installed = false,
+            size = "760 KB",
+            command = "whois"
         )
     )
+
+    private val defaultInstalledPackages = listOf("python", "neofetch", "nano", "cmatrix", "snake", "2048", "curl", "tree", "weather", "pipes", "cowsay", "fortune", "calc")
+
+    suspend fun preloadDefaultPackages() {
+        val existing = dao.getAllInstalledPackages().first()
+        if (existing.isEmpty()) {
+            defaultInstalledPackages.forEach { pkgId ->
+                dao.installPackage(InstalledPackageEntity(packageId = pkgId))
+            }
+        }
+    }
+
+    suspend fun getInstalledPackageIds(): Set<String> {
+        val list = dao.getAllInstalledPackages().first()
+        return list.map { it.packageId }.toSet()
+    }
+
+    suspend fun isPackageInstalled(pkgId: String): Boolean {
+        val installed = getInstalledPackageIds()
+        return installed.contains(pkgId.lowercase())
+    }
+
+    suspend fun getAllPackagesWithStatus(): List<PackageItem> {
+        val installed = getInstalledPackageIds()
+        return availablePackages.map { pkg ->
+            pkg.copy(installed = installed.contains(pkg.id.lowercase()))
+        }
+    }
 
     suspend fun recordCommand(command: String, workingDir: String, exitCode: Int) {
         if (command.isNotBlank()) {
@@ -173,14 +271,14 @@ class TerminalRepository(private val dao: TerminalDao) {
     }
 
     suspend fun installPackage(pkgId: String) {
-        dao.installPackage(InstalledPackageEntity(packageId = pkgId))
+        dao.installPackage(InstalledPackageEntity(packageId = pkgId.lowercase()))
     }
 
     suspend fun uninstallPackage(pkgId: String) {
-        dao.uninstallPackage(pkgId)
+        dao.uninstallPackage(pkgId.lowercase())
     }
 
     suspend fun preloadDefaultScriptsIfEmpty() {
-        // Will be called on startup
+        // Preloaded via ViewModel
     }
 }

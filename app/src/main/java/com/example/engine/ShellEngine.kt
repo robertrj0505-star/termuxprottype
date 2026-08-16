@@ -206,8 +206,29 @@ class ShellEngine(
                 onOutput(TerminalLine(text = "\u001B[2J\u001B[H", isSystem = true))
                 0
             }
-            "pkg", "apt" -> {
+            "tpkg", "pkg", "apt" -> {
                 handlePkgCommand(args, onOutput)
+            }
+            "htop", "top" -> {
+                handleHtop(args, onOutput)
+            }
+            "jq" -> {
+                handleJq(args, onOutput)
+            }
+            "speedtest" -> {
+                handleSpeedtest(args, onOutput)
+            }
+            "nmap" -> {
+                handleNmap(args, onOutput)
+            }
+            "todo" -> {
+                handleTodo(args, onOutput)
+            }
+            "whois" -> {
+                handleWhois(args, onOutput)
+            }
+            "bc" -> {
+                handleBc(args, onOutput)
             }
             "cd" -> {
                 handleCd(args, onOutput)
@@ -615,17 +636,31 @@ class ShellEngine(
 
     private suspend fun showHelp(args: List<String>, onOutput: suspend (TerminalLine) -> Unit) {
         onOutput(TerminalLine(text = "\u001B[1;36m=== TERMINAL & LINUX SHELL ENVIRONMENT ===\u001B[0m"))
-        onOutput(TerminalLine(text = "\u001B[1;32mEssential Commands:\u001B[0m"))
-        onOutput(TerminalLine(text = "  \u001B[1;33mpkg\u001B[0m <install|list|uninstall|update> - Manage terminal packages"))
+        onOutput(TerminalLine(text = "\u001B[1;32mPackage Management (tpkg / pkg / apt):\u001B[0m"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtpkg list\u001B[0m               - List all available & installed packages"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtpkg list-installed\u001B[0m     - List only installed packages"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtpkg install <pkg...>\u001B[0m   - Install one or more utility packages"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtpkg uninstall <pkg>\u001B[0m    - Remove / uninstall a package"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtpkg show <pkg>\u001B[0m         - Display package metadata & information"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtpkg search <keyword>\u001B[0m   - Search package repositories"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtpkg update / upgrade\u001B[0m   - Update simulated repository indexes"))
+        onOutput(TerminalLine(text = ""))
+        onOutput(TerminalLine(text = "\u001B[1;32mEssential Tools & Utilities:\u001B[0m"))
         onOutput(TerminalLine(text = "  \u001B[1;33mneofetch\u001B[0m                       - Display Android specs & ASCII logo"))
         onOutput(TerminalLine(text = "  \u001B[1;33mnano\u001B[0m <file>                    - Interactive full-screen text editor"))
         onOutput(TerminalLine(text = "  \u001B[1;33mpython\u001B[0m [script.py]             - Python interactive REPL & runner"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mhtop\u001B[0m                           - Interactive system process & memory monitor"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mspeedtest\u001B[0m                      - Internet bandwidth benchmark tool"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mnmap\u001B[0m [host]                    - Network port scanner & service exploration"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mtodo\u001B[0m <add|list|done|rm|clear>  - CLI task manager"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mjq\u001B[0m <expr> [file.json]          - Command-line JSON processor & pretty-printer"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mwhois\u001B[0m <domain>                 - Domain & IP registry lookup"))
         onOutput(TerminalLine(text = "  \u001B[1;33mmatrix\u001B[0m                         - Falling digital green rain animation"))
         onOutput(TerminalLine(text = "  \u001B[1;33msnake\u001B[0m / \u001B[1;33m2048\u001B[0m                   - Classic terminal arcade games"))
         onOutput(TerminalLine(text = "  \u001B[1;33mcurl\u001B[0m <url>                     - Transfer data from web / REST API"))
         onOutput(TerminalLine(text = "  \u001B[1;33mweather\u001B[0m [city]                 - Live ASCII weather forecast"))
         onOutput(TerminalLine(text = "  \u001B[1;33mtree\u001B[0m [dir]                     - Directory visual hierarchy graph"))
-        onOutput(TerminalLine(text = "  \u001B[1;33mcalc\u001B[0m <expression>              - Scientific math calculator"))
+        onOutput(TerminalLine(text = "  \u001B[1;33mcalc\u001B[0m / \u001B[1;33mbc\u001B[0m <expression>         - Scientific math calculator"))
         onOutput(TerminalLine(text = "  \u001B[1;33mcowsay\u001B[0m <text> / \u001B[1;33mfiglet\u001B[0m <text>   - ASCII art banners & speech bubbles"))
         onOutput(TerminalLine(text = ""))
         onOutput(TerminalLine(text = "\u001B[1;32mFile & Shell Navigation:\u001B[0m"))
@@ -644,6 +679,7 @@ class ShellEngine(
         val usedMemMb = totalMemMb - freeMemMb
         val uptimeHours = SystemClock.elapsedRealtime() / (1000 * 60 * 60)
         val uptimeMinutes = (SystemClock.elapsedRealtime() / (1000 * 60)) % 60
+        val installedCount = repository.getInstalledPackageIds().size
 
         val banner = listOf(
             "\u001B[1;32m       .-''''-.        \u001B[1;37m${envVars["USER"]}@localhost\u001B[0m",
@@ -652,7 +688,7 @@ class ShellEngine(
             "\u001B[1;32m     | | () () | |     \u001B[1;33mHost:\u001B[0m ${Build.MANUFACTURER} ${Build.MODEL}",
             "\u001B[1;32m     |  \\     /  |     \u001B[1;33mKernel:\u001B[0m Linux ${System.getProperty("os.version")}",
             "\u001B[1;32m      \\  '---'  /      \u001B[1;33mUptime:\u001B[0m ${uptimeHours}h ${uptimeMinutes}m",
-            "\u001B[1;32m  .---'--.   .--'---.  \u001B[1;33mPackages:\u001B[0m 12 (pkg-core)",
+            "\u001B[1;32m  .---'--.   .--'---.  \u001B[1;33mPackages:\u001B[0m $installedCount (tpkg)",
             "\u001B[1;32m /  |__|  \\ /  |__|  \\ \u001B[1;33mShell:\u001B[0m Termux-Bash 5.2",
             "\u001B[1;32m|   |  |   |   |  |   |\u001B[1;33mCPU:\u001B[0m ${Build.HARDWARE} (${Runtime.getRuntime().availableProcessors()} cores)",
             "\u001B[1;32m|   |  |   |   |  |   |\u001B[1;33mMemory:\u001B[0m ${usedMemMb}MB / ${totalMemMb}MB",
@@ -667,84 +703,413 @@ class ShellEngine(
     }
 
     private suspend fun handlePkgCommand(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
-        if (args.isEmpty() || args[0] == "help") {
-            onOutput(TerminalLine(text = "\u001B[1;36mPackage Management Utility (pkg / apt)\u001B[0m"))
-            onOutput(TerminalLine(text = "Usage:"))
-            onOutput(TerminalLine(text = "  pkg list                - List all available packages"))
-            onOutput(TerminalLine(text = "  pkg install <package>   - Install a package"))
-            onOutput(TerminalLine(text = "  pkg uninstall <package> - Remove a package"))
-            onOutput(TerminalLine(text = "  pkg update / upgrade    - Update repository index"))
-            onOutput(TerminalLine(text = "  pkg search <keyword>    - Search packages"))
+        if (args.isEmpty() || args[0] == "help" || args[0] == "--help" || args[0] == "-h") {
+            onOutput(TerminalLine(text = "\u001B[1;36mTermux Package Manager (tpkg / pkg / apt)\u001B[0m"))
+            onOutput(TerminalLine(text = "Usage: tpkg <command> [arguments...]"))
+            onOutput(TerminalLine(text = ""))
+            onOutput(TerminalLine(text = "\u001B[1;32mCommands:\u001B[0m"))
+            onOutput(TerminalLine(text = "  \u001B[1;33mlist\u001B[0m                   - List all available packages with installation status"))
+            onOutput(TerminalLine(text = "  \u001B[1;33mlist-installed\u001B[0m         - List only installed packages"))
+            onOutput(TerminalLine(text = "  \u001B[1;33minstall <pkg...>\u001B[0m       - Install one or more utility packages"))
+            onOutput(TerminalLine(text = "  \u001B[1;33muninstall <pkg...>\u001B[0m     - Uninstall / remove packages (alias: remove, purge)"))
+            onOutput(TerminalLine(text = "  \u001B[1;33mshow <pkg>\u001B[0m             - Show detailed package info and description (alias: info)"))
+            onOutput(TerminalLine(text = "  \u001B[1;33msearch <keyword>\u001B[0m       - Search available packages by name or description"))
+            onOutput(TerminalLine(text = "  \u001B[1;33mupdate / upgrade\u001B[0m       - Update package index and verify latest versions"))
+            onOutput(TerminalLine(text = "  \u001B[1;33mreinstall <pkg>\u001B[0m        - Reinstall an existing package"))
+            onOutput(TerminalLine(text = "  \u001B[1;33mhelp\u001B[0m                   - Show this help summary"))
             return 0
         }
 
-        when (args[0]) {
-            "list" -> {
+        val action = args[0].lowercase()
+        val installedSet = repository.getInstalledPackageIds()
+
+        when (action) {
+            "list", "list-all" -> {
                 onOutput(TerminalLine(text = "\u001B[1;32mListing all packages...\u001B[0m"))
                 repository.availablePackages.forEach { pkg ->
-                    val status = "\u001B[1;32m[installed]\u001B[0m"
-                    onOutput(TerminalLine(text = "\u001B[1;33m${pkg.id}\u001B[0m/${pkg.category} \u001B[90m${pkg.version}\u001B[0m $status"))
-                    onOutput(TerminalLine(text = "  ${pkg.description} (${pkg.size})"))
+                    val isInstalled = installedSet.contains(pkg.id.lowercase())
+                    val status = if (isInstalled) {
+                        "\u001B[1;32m[installed]\u001B[0m"
+                    } else {
+                        "\u001B[1;34m[available]\u001B[0m"
+                    }
+                    onOutput(TerminalLine(text = "\u001B[1;33m${pkg.id}\u001B[0m/${pkg.category.lowercase()} \u001B[90m${pkg.version}\u001B[0m aarch64 $status"))
+                    onOutput(TerminalLine(text = "  ${pkg.description} (\u001B[36m${pkg.size}\u001B[0m)"))
                 }
                 0
             }
-            "install", "add" -> {
+            "list-installed", "installed" -> {
+                onOutput(TerminalLine(text = "\u001B[1;32mListing installed packages...\u001B[0m"))
+                val installedPkgs = repository.availablePackages.filter { installedSet.contains(it.id.lowercase()) }
+                if (installedPkgs.isEmpty()) {
+                    onOutput(TerminalLine(text = "No packages currently installed. Run 'tpkg list' to see available packages."))
+                } else {
+                    installedPkgs.forEach { pkg ->
+                        onOutput(TerminalLine(text = "\u001B[1;33m${pkg.id}\u001B[0m/${pkg.category.lowercase()} \u001B[90m${pkg.version}\u001B[0m aarch64 \u001B[1;32m[installed]\u001B[0m"))
+                        onOutput(TerminalLine(text = "  ${pkg.description} (Run with: \u001B[36m${pkg.command}\u001B[0m)"))
+                    }
+                }
+                0
+            }
+            "install", "add", "reinstall" -> {
+                val pkgNames = args.drop(1)
+                if (pkgNames.isEmpty()) {
+                    onOutput(TerminalLine(text = "tpkg: missing package name. Example: tpkg install htop", isError = true))
+                    return 1
+                }
+                for (pkgName in pkgNames) {
+                    val pkg = repository.availablePackages.find { it.id.equals(pkgName, ignoreCase = true) }
+                    if (pkg == null) {
+                        onOutput(TerminalLine(text = "E: Unable to locate package '$pkgName'", isError = true))
+                        onOutput(TerminalLine(text = "Try 'tpkg search $pkgName' or 'tpkg list' to find packages."))
+                        continue
+                    }
+
+                    val isAlreadyInstalled = installedSet.contains(pkg.id.lowercase())
+                    if (isAlreadyInstalled && action != "reinstall") {
+                        onOutput(TerminalLine(text = "${pkg.id} is already the newest version (${pkg.version})."))
+                        continue
+                    }
+
+                    onOutput(TerminalLine(text = "Reading package lists... Done"))
+                    onOutput(TerminalLine(text = "Building dependency tree... Done"))
+                    onOutput(TerminalLine(text = "Calculating upgrade... Done"))
+                    onOutput(TerminalLine(text = "The following NEW package will be installed:"))
+                    onOutput(TerminalLine(text = "  \u001B[1;33m${pkg.id}\u001B[0m (${pkg.version})"))
+                    onOutput(TerminalLine(text = "0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded."))
+                    onOutput(TerminalLine(text = "Need to get ${pkg.size} of archives."))
+                    onOutput(TerminalLine(text = "Get:1 https://packages.termux.dev/apt/termux-main stable aarch64 ${pkg.id} ${pkg.version} [${pkg.size}]"))
+                    onOutput(TerminalLine(text = "Preparing to unpack .../${pkg.id}_${pkg.version}_aarch64.deb ..."))
+                    onOutput(TerminalLine(text = "Unpacking ${pkg.id} (${pkg.version}) ..."))
+                    onOutput(TerminalLine(text = "Setting up ${pkg.id} (${pkg.version}) ..."))
+                    repository.installPackage(pkg.id)
+                    onOutput(TerminalLine(text = "\u001B[1;32m✓ Package '${pkg.id}' (${pkg.name}) installed successfully!\u001B[0m"))
+                    onOutput(TerminalLine(text = "Run command: '\u001B[1;33m${pkg.command}\u001B[0m'"))
+                }
+                0
+            }
+            "uninstall", "remove", "purge", "delete" -> {
+                val pkgNames = args.drop(1)
+                if (pkgNames.isEmpty()) {
+                    onOutput(TerminalLine(text = "tpkg: missing package name. Example: tpkg uninstall htop", isError = true))
+                    return 1
+                }
+                for (pkgName in pkgNames) {
+                    val pkg = repository.availablePackages.find { it.id.equals(pkgName, ignoreCase = true) }
+                    val id = pkg?.id ?: pkgName.lowercase()
+                    val isInstalled = installedSet.contains(id)
+
+                    if (!isInstalled) {
+                        onOutput(TerminalLine(text = "Package '$id' is not installed, so not removed."))
+                        continue
+                    }
+
+                    onOutput(TerminalLine(text = "Reading package lists... Done"))
+                    onOutput(TerminalLine(text = "Building dependency tree... Done"))
+                    onOutput(TerminalLine(text = "The following packages will be REMOVED:"))
+                    onOutput(TerminalLine(text = "  \u001B[1;31m$id\u001B[0m"))
+                    onOutput(TerminalLine(text = "0 upgraded, 0 newly installed, 1 to remove and 0 not upgraded."))
+                    onOutput(TerminalLine(text = "Removing $id (${pkg?.version ?: "1.0"}) ..."))
+                    onOutput(TerminalLine(text = "Purging configuration files for $id ..."))
+                    repository.uninstallPackage(id)
+                    onOutput(TerminalLine(text = "\u001B[1;33m✓ Package '$id' removed.\u001B[0m"))
+                }
+                0
+            }
+            "show", "info", "status" -> {
                 val pkgName = args.getOrNull(1)
                 if (pkgName == null) {
-                    onOutput(TerminalLine(text = "pkg: missing package name. Example: pkg install python", isError = true))
+                    onOutput(TerminalLine(text = "tpkg: missing package name. Example: tpkg show python", isError = true))
                     return 1
                 }
                 val pkg = repository.availablePackages.find { it.id.equals(pkgName, ignoreCase = true) }
                 if (pkg != null) {
-                    onOutput(TerminalLine(text = "Reading package lists... Done"))
-                    onOutput(TerminalLine(text = "Building dependency tree... Done"))
-                    onOutput(TerminalLine(text = "The following NEW package will be installed: ${pkg.id}"))
-                    onOutput(TerminalLine(text = "Unpacking ${pkg.id} (${pkg.version}) ..."))
-                    onOutput(TerminalLine(text = "Setting up ${pkg.id} ..."))
-                    repository.installPackage(pkg.id)
-                    onOutput(TerminalLine(text = "\u001B[1;32mPackage '${pkg.id}' is installed and ready to use!\u001B[0m (Run with: '${pkg.command}')"))
+                    val isInstalled = installedSet.contains(pkg.id.lowercase())
+                    onOutput(TerminalLine(text = "\u001B[1;36mPackage:\u001B[0m ${pkg.id}"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mName:\u001B[0m ${pkg.name}"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mVersion:\u001B[0m ${pkg.version}"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mStatus:\u001B[0m ${if (isInstalled) "\u001B[1;32minstall ok installed\u001B[0m" else "\u001B[1;34mavailable for installation\u001B[0m"}"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mSection:\u001B[0m ${pkg.category}"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mInstalled-Size:\u001B[0m ${pkg.size}"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mArchitecture:\u001B[0m aarch64"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mBinary Command:\u001B[0m ${pkg.command}"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mMaintainer:\u001B[0m Termux Packaging Team <packages@termux.dev>"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mHomepage:\u001B[0m https://packages.termux.dev/apt/termux-main"))
+                    onOutput(TerminalLine(text = "\u001B[1;36mDescription:\u001B[0m ${pkg.description}"))
                 } else {
                     onOutput(TerminalLine(text = "E: Unable to locate package '$pkgName'", isError = true))
                 }
                 0
             }
-            "uninstall", "remove" -> {
-                val pkgName = args.getOrNull(1)
-                if (pkgName == null) {
-                    onOutput(TerminalLine(text = "pkg: missing package name", isError = true))
-                    return 1
-                }
-                repository.uninstallPackage(pkgName)
-                onOutput(TerminalLine(text = "\u001B[33mPackage '$pkgName' uninstalled.\u001B[0m"))
-                0
-            }
-            "update", "upgrade" -> {
-                onOutput(TerminalLine(text = "Hit:1 https://packages.termux.dev/apt/termux-main stable InRelease"))
+            "update", "upgrade", "refresh" -> {
+                onOutput(TerminalLine(text = "Get:1 https://packages.termux.dev/apt/termux-main stable InRelease [14.0 kB]"))
+                onOutput(TerminalLine(text = "Get:2 https://packages.termux.dev/apt/termux-main stable/main aarch64 Packages [2,480 kB]"))
+                onOutput(TerminalLine(text = "Fetched 2,494 kB in 1s (2,494 kB/s)"))
                 onOutput(TerminalLine(text = "Reading package lists... Done"))
                 onOutput(TerminalLine(text = "Building dependency tree... Done"))
-                onOutput(TerminalLine(text = "\u001B[1;32mAll packages are up to date.\u001B[0m"))
+                onOutput(TerminalLine(text = "Calculating upgrade... Done"))
+                onOutput(TerminalLine(text = "\u001B[1;32mAll ${repository.availablePackages.size} packages are up to date.\u001B[0m"))
                 0
             }
-            "search" -> {
+            "search", "find" -> {
                 val query = args.getOrNull(1) ?: ""
                 val matches = repository.availablePackages.filter {
-                    it.id.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true)
+                    it.id.contains(query, ignoreCase = true) ||
+                    it.name.contains(query, ignoreCase = true) ||
+                    it.description.contains(query, ignoreCase = true) ||
+                    it.category.contains(query, ignoreCase = true)
                 }
                 if (matches.isEmpty()) {
-                    onOutput(TerminalLine(text = "No packages matching '$query'"))
+                    onOutput(TerminalLine(text = "No packages matching query '$query'"))
                 } else {
+                    onOutput(TerminalLine(text = "\u001B[1;32mFound ${matches.size} package(s) matching '$query':\u001B[0m"))
                     matches.forEach { pkg ->
-                        onOutput(TerminalLine(text = "\u001B[1;33m${pkg.id}\u001B[0m: ${pkg.description}"))
+                        val isInstalled = installedSet.contains(pkg.id.lowercase())
+                        val status = if (isInstalled) "\u001B[1;32m[installed]\u001B[0m" else "\u001B[1;34m[available]\u001B[0m"
+                        onOutput(TerminalLine(text = "  \u001B[1;33m${pkg.id}\u001B[0m/${pkg.category.lowercase()} - ${pkg.description} $status"))
                     }
                 }
                 0
             }
             else -> {
-                onOutput(TerminalLine(text = "Unknown pkg command: ${args[0]}", isError = true))
+                onOutput(TerminalLine(text = "tpkg: unknown action '$action'. Type 'tpkg help' for usage.", isError = true))
                 1
             }
         }
         return 0
+    }
+
+    // Mock utility commands
+
+    private suspend fun handleHtop(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
+        if (!repository.isPackageInstalled("htop")) {
+            onOutput(TerminalLine(text = "The command 'htop' is not installed. You can install it by typing:", isError = true))
+            onOutput(TerminalLine(text = "  \u001B[1;33mtpkg install htop\u001B[0m"))
+            return 1
+        }
+
+        val runtime = Runtime.getRuntime()
+        val totalMem = runtime.totalMemory() / (1024 * 1024)
+        val freeMem = runtime.freeMemory() / (1024 * 1024)
+        val usedMem = totalMem - freeMem
+        val cores = runtime.availableProcessors()
+
+        onOutput(TerminalLine(text = "\u001B[1;37;44m  htop 3.2.2 - Termux Process Viewer                                           \u001B[0m"))
+        onOutput(TerminalLine(text = "\u001B[1;32m 0\u001B[0m [\u001B[1;32m|||||||||||||||||||||||||||||||||\u001B[90m..................\u001B[0m 64.2%]     \u001B[1;33mTasks:\u001B[0m 32 total, 1 running"))
+        if (cores > 1) {
+            onOutput(TerminalLine(text = "\u001B[1;32m 1\u001B[0m [\u001B[1;32m||||||||||||||||||||||||||\u001B[90m........................\u001B[0m 52.0%]     \u001B[1;33mLoad average:\u001B[0m 0.28 0.35 0.31"))
+        }
+        onOutput(TerminalLine(text = "\u001B[1;36mMem\u001B[0m[\u001B[1;36m|||||||||||||||||||||||||\u001B[90m.......................\u001B[0m ${usedMem}M/${totalMem}M]   \u001B[1;33mUptime:\u001B[0m ${(SystemClock.elapsedRealtime() / 3600000)}h ${(SystemClock.elapsedRealtime() / 60000) % 60}m"))
+        onOutput(TerminalLine(text = "\u001B[1;35mSwp\u001B[0m[\u001B[90m................................................\u001B[0m 0K/512M]"))
+        onOutput(TerminalLine(text = ""))
+        onOutput(TerminalLine(text = "\u001B[1;30;47m  PID USER      PRI  NI  VIRT   RES   SHR S CPU% MEM%   TIME+  Command             \u001B[0m"))
+        onOutput(TerminalLine(text = " 1001 ${envVars["USER"] ?: "u0_a100"}   20   0  245M   52M   32M S  1.8  5.2  0:01.24 bash"))
+        onOutput(TerminalLine(text = " 1042 ${envVars["USER"] ?: "u0_a100"}   20   0  580M  128M   74M S  3.4 12.8  0:03.88 python3"))
+        onOutput(TerminalLine(text = " 1089 ${envVars["USER"] ?: "u0_a100"}   20   0  112M   28M   18M R  2.5  2.8  0:00.09 htop"))
+        onOutput(TerminalLine(text = " 1120 root        20   0   84M   12M    8M S  0.1  1.2  0:00.32 surfaceflinger"))
+        onOutput(TerminalLine(text = " 1155 system      20   0  1.2G  240M  110M S  0.8 24.0  0:15.60 system_server"))
+        onOutput(TerminalLine(text = ""))
+        onOutput(TerminalLine(text = "\u001B[30;46m F1\u001B[0mHelp \u001B[30;46m F2\u001B[0mSetup \u001B[30;46m F3\u001B[0mSearch \u001B[30;46m F4\u001B[0mFilter \u001B[30;46m F5\u001B[0mTree \u001B[30;46m F6\u001B[0mSortBy \u001B[30;46m F9\u001B[0mKill \u001B[30;46m F10\u001B[0mQuit"))
+        return 0
+    }
+
+    private suspend fun handleJq(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
+        if (!repository.isPackageInstalled("jq")) {
+            onOutput(TerminalLine(text = "The command 'jq' is not installed. You can install it with:", isError = true))
+            onOutput(TerminalLine(text = "  \u001B[1;33mtpkg install jq\u001B[0m"))
+            return 1
+        }
+
+        if (args.isEmpty()) {
+            onOutput(TerminalLine(text = "jq - commandline JSON processor [version 1.6]"))
+            onOutput(TerminalLine(text = "Usage: jq [options] <jq filter> [file...]"))
+            onOutput(TerminalLine(text = "Example: echo '{\"name\":\"termux\",\"v\":1}' | jq '.'"))
+            return 0
+        }
+
+        val firstArg = args[0]
+        val targetFile = args.getOrNull(1)?.let { resolveFile(it) }
+
+        val jsonText = if (targetFile != null && targetFile.exists()) {
+            targetFile.readText()
+        } else if (firstArg.trim().startsWith("{") || firstArg.trim().startsWith("[")) {
+            firstArg
+        } else {
+            // Default sample demo json
+            """{"app": "Termux", "version": "5.2.0", "status": "active", "features": ["bash", "python", "tpkg", "nano"]}"""
+        }
+
+        // Formatted pretty json output with syntax coloring
+        val lines = jsonText.replace("{", "{\n  ")
+            .replace("}", "\n}")
+            .replace(",", ",\n  ")
+            .split("\n")
+
+        for (l in lines) {
+            val formatted = l
+                .replace(Regex("\"([a-zA-Z0-9_-]+)\":"), "\u001B[1;34m\"$1\"\u001B[0m:")
+                .replace(Regex(": \"([^\"]+)\""), ": \u001B[32m\"$1\"\u001B[0m")
+                .replace(Regex(": ([0-9.]+)"), ": \u001B[33m$1\u001B[0m")
+                .replace(Regex(": (true|false)"), ": \u001B[35m$1\u001B[0m")
+            onOutput(TerminalLine(text = formatted))
+        }
+        return 0
+    }
+
+    private suspend fun handleSpeedtest(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
+        if (!repository.isPackageInstalled("speedtest")) {
+            onOutput(TerminalLine(text = "The command 'speedtest' is not installed. You can install it with:", isError = true))
+            onOutput(TerminalLine(text = "  \u001B[1;33mtpkg install speedtest\u001B[0m"))
+            return 1
+        }
+
+        onOutput(TerminalLine(text = "\u001B[1;36m   Speedtest CLI v2.1.3 (Simulated Network Benchmarking)\u001B[0m"))
+        onOutput(TerminalLine(text = "========================================================"))
+        onOutput(TerminalLine(text = "Testing from Google Cloud / Termux Network (104.28.19.42)..."))
+        onOutput(TerminalLine(text = "Selecting best server based on ping..."))
+        onOutput(TerminalLine(text = "Hosted by Cloudflare (Ashburn, VA) [14.2 km]: \u001B[1;32m12.4 ms\u001B[0m"))
+        onOutput(TerminalLine(text = "Testing download speed ........................................ \u001B[1;32m284.50 Mbit/s\u001B[0m"))
+        onOutput(TerminalLine(text = "Testing upload speed .......................................... \u001B[1;33m96.20 Mbit/s\u001B[0m"))
+        onOutput(TerminalLine(text = ""))
+        onOutput(TerminalLine(text = "\u001B[1;32mDownload: 284.50 Mbit/s   Upload: 96.20 Mbit/s   Latency: 12.4 ms\u001B[0m"))
+        return 0
+    }
+
+    private suspend fun handleNmap(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
+        if (!repository.isPackageInstalled("nmap")) {
+            onOutput(TerminalLine(text = "The command 'nmap' is not installed. You can install it with:", isError = true))
+            onOutput(TerminalLine(text = "  \u001B[1;33mtpkg install nmap\u001B[0m"))
+            return 1
+        }
+
+        val target = args.firstOrNull() ?: "127.0.0.1"
+        onOutput(TerminalLine(text = "Starting Nmap 7.94 ( https://nmap.org ) at ${SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).format(Date())}"))
+        onOutput(TerminalLine(text = "Nmap scan report for $target"))
+        onOutput(TerminalLine(text = "Host is up (0.00038s latency)."))
+        onOutput(TerminalLine(text = "Not shown: 996 closed tcp ports (reset)"))
+        onOutput(TerminalLine(text = "\u001B[1;37mPORT     STATE SERVICE     VERSION\u001B[0m"))
+        onOutput(TerminalLine(text = "\u001B[1;32m22/tcp   open  ssh         OpenSSH 9.3p1 (Termux sshd)\u001B[0m"))
+        onOutput(TerminalLine(text = "\u001B[1;32m80/tcp   open  http        nginx/1.24.0\u001B[0m"))
+        onOutput(TerminalLine(text = "\u001B[1;32m443/tcp  open  ssl/http    nginx/1.24.0\u001B[0m"))
+        onOutput(TerminalLine(text = "\u001B[1;32m8080/tcp open  http-proxy  NodeJS / Python HTTP Server\u001B[0m"))
+        onOutput(TerminalLine(text = ""))
+        onOutput(TerminalLine(text = "Nmap done: 1 IP address (1 host up) scanned in 0.42 seconds"))
+        return 0
+    }
+
+    private suspend fun handleTodo(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
+        if (!repository.isPackageInstalled("todo")) {
+            onOutput(TerminalLine(text = "The command 'todo' is not installed. You can install it with:", isError = true))
+            onOutput(TerminalLine(text = "  \u001B[1;33mtpkg install todo\u001B[0m"))
+            return 1
+        }
+
+        val todoFile = File(homeDir, ".todo.txt")
+        if (!todoFile.exists()) {
+            todoFile.writeText("1|[ ]|Install Termux packages and explore tpkg\n2|[ ]|Write a Python script in nano editor\n")
+        }
+
+        if (args.isEmpty() || args[0] == "list") {
+            onOutput(TerminalLine(text = "\u001B[1;36m=== TODO LIST (~/.todo.txt) ===\u001B[0m"))
+            val lines = todoFile.readLines().filter { it.isNotBlank() }
+            if (lines.isEmpty()) {
+                onOutput(TerminalLine(text = "No pending tasks. Add one with: todo add <task>"))
+            } else {
+                lines.forEach { line ->
+                    val parts = line.split("|", limit = 3)
+                    if (parts.size == 3) {
+                        val id = parts[0]
+                        val status = parts[1]
+                        val task = parts[2]
+                        val colorStatus = if (status.contains("x")) "\u001B[1;32m$status\u001B[0m" else "\u001B[1;33m$status\u001B[0m"
+                        onOutput(TerminalLine(text = "  \u001B[90m$id.\u001B[0m $colorStatus $task"))
+                    } else {
+                        onOutput(TerminalLine(text = "  $line"))
+                    }
+                }
+            }
+            return 0
+        }
+
+        when (args[0]) {
+            "add" -> {
+                val task = args.drop(1).joinToString(" ")
+                if (task.isBlank()) {
+                    onOutput(TerminalLine(text = "todo: missing task description. Example: todo add 'Buy coffee'", isError = true))
+                    return 1
+                }
+                val lines = todoFile.readLines().filter { it.isNotBlank() }
+                val newId = (lines.size + 1).toString()
+                todoFile.appendText("$newId|[ ]|$task\n")
+                onOutput(TerminalLine(text = "\u001B[1;32m✓ Task #$newId added:\u001B[0m $task"))
+                0
+            }
+            "done" -> {
+                val id = args.getOrNull(1)
+                if (id == null) {
+                    onOutput(TerminalLine(text = "todo: missing task id. Example: todo done 1", isError = true))
+                    return 1
+                }
+                val lines = todoFile.readLines().map { line ->
+                    val parts = line.split("|", limit = 3)
+                    if (parts.size == 3 && parts[0] == id) {
+                        "${parts[0]}|[x]|${parts[2]}"
+                    } else {
+                        line
+                    }
+                }
+                todoFile.writeText(lines.joinToString("\n") + "\n")
+                onOutput(TerminalLine(text = "\u001B[1;32m✓ Task #$id marked as completed!\u001B[0m"))
+                0
+            }
+            "rm", "remove" -> {
+                val id = args.getOrNull(1)
+                if (id == null) {
+                    onOutput(TerminalLine(text = "todo: missing task id. Example: todo rm 1", isError = true))
+                    return 1
+                }
+                val lines = todoFile.readLines().filter { !it.startsWith("$id|") }
+                todoFile.writeText(lines.joinToString("\n") + if (lines.isNotEmpty()) "\n" else "")
+                onOutput(TerminalLine(text = "\u001B[1;33mTask #$id removed.\u001B[0m"))
+                0
+            }
+            "clear" -> {
+                todoFile.writeText("")
+                onOutput(TerminalLine(text = "\u001B[1;33mAll tasks cleared.\u001B[0m"))
+                0
+            }
+            else -> {
+                onOutput(TerminalLine(text = "Unknown todo command: ${args[0]}. Usage: todo <add|list|done|rm|clear>", isError = true))
+                1
+            }
+        }
+        return 0
+    }
+
+    private suspend fun handleWhois(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
+        if (!repository.isPackageInstalled("whois")) {
+            onOutput(TerminalLine(text = "The command 'whois' is not installed. You can install it with:", isError = true))
+            onOutput(TerminalLine(text = "  \u001B[1;33mtpkg install whois\u001B[0m"))
+            return 1
+        }
+
+        val domain = args.firstOrNull() ?: "termux.dev"
+        onOutput(TerminalLine(text = "   Domain Name: \u001B[1;33m${domain.uppercase()}\u001B[0m"))
+        onOutput(TerminalLine(text = "   Registry Domain ID: 29481902_DOMAIN_DEV-VRSN"))
+        onOutput(TerminalLine(text = "   Registrar WHOIS Server: whois.nic.dev"))
+        onOutput(TerminalLine(text = "   Registrar URL: https://nic.dev"))
+        onOutput(TerminalLine(text = "   Updated Date: 2023-08-14T08:12:00Z"))
+        onOutput(TerminalLine(text = "   Creation Date: 2018-05-02T12:00:00Z"))
+        onOutput(TerminalLine(text = "   Registry Expiry Date: 2028-05-02T12:00:00Z"))
+        onOutput(TerminalLine(text = "   Registrar: Google Domains / MarkMonitor"))
+        onOutput(TerminalLine(text = "   Name Server: NS1.CLOUDFLARE.COM"))
+        onOutput(TerminalLine(text = "   Name Server: NS2.CLOUDFLARE.COM"))
+        onOutput(TerminalLine(text = "   DNSSEC: signedDelegation"))
+        return 0
+    }
+
+    private suspend fun handleBc(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
+        return handleCalc(args, onOutput)
     }
 
     private suspend fun handleCd(args: List<String>, onOutput: suspend (TerminalLine) -> Unit): Int {
@@ -1281,17 +1646,30 @@ class ShellEngine(
 
     fun getAutoCompleteSuggestions(input: String): List<String> {
         val trimmed = input.trimEnd()
-        val tokens = trimmed.split(" ")
+        val tokens = trimmed.split(Regex("\\s+"))
         if (tokens.size <= 1) {
             // Suggest commands
             val prefix = tokens.firstOrNull() ?: ""
             val allCommands = listOf(
-                "pkg", "neofetch", "nano", "python", "matrix", "snake", "2048", "curl", "weather",
+                "tpkg", "pkg", "apt", "htop", "speedtest", "nmap", "todo", "jq", "whois", "bc",
+                "neofetch", "nano", "python", "matrix", "snake", "2048", "curl", "weather",
                 "tree", "calc", "cowsay", "figlet", "ls", "cd", "pwd", "cat", "echo", "mkdir",
                 "rm", "touch", "cp", "mv", "grep", "find", "head", "tail", "wc", "clear", "exit",
                 "uptime", "uname", "whoami", "history", "date", "env", "export", "alias", "ps", "top", "df"
             )
             return allCommands.filter { it.startsWith(prefix, ignoreCase = true) }
+        } else if (tokens[0] in listOf("tpkg", "pkg", "apt") && tokens.size == 2) {
+            val subActions = listOf("list", "list-installed", "install", "uninstall", "show", "search", "update", "upgrade", "reinstall", "help")
+            val subPrefix = tokens[1]
+            val subMatches = subActions.filter { it.startsWith(subPrefix, ignoreCase = true) }
+            if (subMatches.isNotEmpty()) return subMatches
+
+            // Also suggest package names if user typed e.g. `tpkg h`
+            val pkgMatches = repository.availablePackages.map { it.id }.filter { it.startsWith(subPrefix, ignoreCase = true) }
+            return pkgMatches
+        } else if (tokens[0] in listOf("tpkg", "pkg", "apt") && tokens.size >= 3 && tokens[1] in listOf("install", "uninstall", "show", "info", "remove", "reinstall")) {
+            val lastToken = tokens.last()
+            return repository.availablePackages.map { it.id }.filter { it.startsWith(lastToken, ignoreCase = true) }
         } else {
             // Suggest files / directories
             val lastToken = tokens.last()

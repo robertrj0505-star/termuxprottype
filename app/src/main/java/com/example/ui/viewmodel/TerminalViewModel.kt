@@ -121,11 +121,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     init {
         createSession("1: bash")
-        preloadDefaultScripts()
+        preloadDefaults()
     }
 
-    private fun preloadDefaultScripts() {
+    private fun preloadDefaults() {
         viewModelScope.launch {
+            repository.preloadDefaultPackages()
             repository.saveScript(
                 name = "Neofetch & SysInfo",
                 description = "Show system specs, memory, kernel, and ASCII banner",
@@ -163,7 +164,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         val id = "session_${System.currentTimeMillis()}"
         val initialLines = listOf(
             TerminalLine(
-                text = "\u001B[1;32mWelcome to Terminal!\u001B[0m\nType \u001B[1;36mhelp\u001B[0m for commands or \u001B[1;33mpkg list\u001B[0m for packages.",
+                text = "\u001B[1;32mWelcome to Termux Terminal!\u001B[0m\nType \u001B[1;36mhelp\u001B[0m for commands or \u001B[1;33mtpkg list\u001B[0m for packages.",
                 isSystem = true
             )
         )
