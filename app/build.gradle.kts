@@ -118,6 +118,8 @@ dependencies {
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
+  
+  // ===== UNIT TESTING DEPENDENCIES =====
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
@@ -127,11 +129,40 @@ dependencies {
   testImplementation(libs.roborazzi)
   testImplementation(libs.roborazzi.compose)
   testImplementation(libs.roborazzi.junit.rule)
+  
+  // ===== MOCKK FOR MOCKING KOTLIN CLASSES =====
+  testImplementation("io.mockk:mockk:1.13.8")
+  testImplementation("io.mockk:mockk-agent:1.13.8")
+  
+  // ===== OKHTTP MOCK SERVER FOR HTTP MOCKING =====
+  testImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
+  testImplementation("com.squareup.okhttp3:okhttp:4.11.0")
+  
+  // ===== RETROFIT MOCK =====
+  testImplementation("com.squareup.retrofit2:retrofit-mock:2.9.0")
+  
+  // ===== TRUTH FOR BETTER ASSERTIONS =====
+  testImplementation("com.google.truth:truth:1.1.5")
+  
+  // ===== TURBINE FOR FLOW TESTING =====
+  testImplementation("app.cash.turbine:turbine:1.0.0")
+  
+  // ===== ANDROID INSTRUMENTED TESTING DEPENDENCIES =====
   androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   androidTestImplementation(libs.androidx.espresso.core)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.runner)
+  
+  // ===== MOCKK FOR INSTRUMENTED TESTS =====
+  androidTestImplementation("io.mockk:mockk-android:1.13.8")
+  
+  // ===== OKHTTP MOCK SERVER FOR INSTRUMENTED TESTS =====
+  androidTestImplementation("com.squareup.okhttp3:mockwebserver:4.11.0")
+  
+  // ===== TRUTH FOR INSTRUMENTED TESTS =====
+  androidTestImplementation("com.google.truth:truth:1.1.5")
+  
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
